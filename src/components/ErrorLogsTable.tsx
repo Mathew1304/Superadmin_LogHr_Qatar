@@ -26,8 +26,20 @@ interface ErrorLog {
 export function ErrorLogsTable() {
     const [logs, setLogs] = useState<ErrorLog[]>([]);
     const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [severityFilter, setSeverityFilter] = useState<'all' | 'error' | 'warning' | 'critical'>('all');
     const [filter, setFilter] = useState<'all' | 'unresolved'>('unresolved');
     const [selectedLog, setSelectedLog] = useState<ErrorLog | null>(null);
+
+    const filteredLogs = logs.filter((log) => {
+        const matchesSearch = log.error_message.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            log.organization_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            log.user_email?.toLowerCase().includes(searchTerm.toLowerCase());
+
+        const matchesSeverity = severityFilter === 'all' || log.severity === severityFilter;
+
+        return matchesSearch && matchesSeverity;
+    });
 
     useEffect(() => {
         fetchLogs();
@@ -112,38 +124,91 @@ export function ErrorLogsTable() {
         <div className="bg-white rounded-lg shadow">
             {/* Header */}
             <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                            <AlertTriangle className="w-6 h-6 text-orange-600" />
-                            Error Console Logs
-                        </h2>
-                        <p className="text-sm text-gray-600 mt-1">
-                            Real-time errors from all organizations
-                        </p>
+                <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                <AlertTriangle className="w-6 h-6 text-orange-600" />
+                                Error Console Logs
+                            </h2>
+                            <p className="text-sm text-gray-600 mt-1">
+                                Real-time errors from all organizations
+                            </p>
+                        </div>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={fetchLogs}
+                                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
+                            >
+                                <RefreshCw className="w-4 h-4" />
+                                Refresh
+                            </button>
+                            <button
+                                onClick={() => setFilter('all')}
+                                className={`px-4 py-2 rounded-lg transition-colors ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                All ({logs.length})
+                            </button>
+                            <button
+                                onClick={() => setFilter('unresolved')}
+                                className={`px-4 py-2 rounded-lg transition-colors ${filter === 'unresolved' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                    }`}
+                            >
+                                Unresolved
+                            </button>
+                        </div>
                     </div>
+
+                    {/* Severity Filter Buttons */}
                     <div className="flex gap-2">
                         <button
-                            onClick={fetchLogs}
-                            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center gap-2"
-                        >
-                            <RefreshCw className="w-4 h-4" />
-                            Refresh
-                        </button>
-                        <button
-                            onClick={() => setFilter('all')}
-                            className={`px-4 py-2 rounded-lg transition-colors ${filter === 'all' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            onClick={() => setSeverityFilter('all')}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${severityFilter === 'all'
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
-                            All ({logs.length})
+                            All
                         </button>
                         <button
-                            onClick={() => setFilter('unresolved')}
-                            className={`px-4 py-2 rounded-lg transition-colors ${filter === 'unresolved' ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            onClick={() => setSeverityFilter('error')}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${severityFilter === 'error'
+                                ? 'bg-orange-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                                 }`}
                         >
-                            Unresolved
+                            Error
                         </button>
+                        <button
+                            onClick={() => setSeverityFilter('warning')}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${severityFilter === 'warning'
+                                ? 'bg-yellow-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                        >
+                            Warning
+                        </button>
+                        <button
+                            onClick={() => setSeverityFilter('critical')}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors ${severityFilter === 'critical'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                                }`}
+                        >
+                            Critical
+                        </button>
+                    </div>
+
+                    {/* Search Box */}
+                    <div className="relative">
+                        <input
+                            type="text"
+                            placeholder="Search errors..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-4 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full"
+                        />
                     </div>
                 </div>
             </div>
@@ -186,7 +251,7 @@ export function ErrorLogsTable() {
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                            {logs.map((log) => (
+                            {filteredLogs.map((log) => (
                                 <tr key={log.id} className="hover:bg-gray-50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getSeverityColor(log.severity)}`}>
@@ -239,91 +304,93 @@ export function ErrorLogsTable() {
             </div>
 
             {/* Error Detail Modal */}
-            {selectedLog && (
-                <div
-                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-                    onClick={() => setSelectedLog(null)}
-                >
+            {
+                selectedLog && (
                     <div
-                        className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
-                        onClick={(e) => e.stopPropagation()}
+                        className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+                        onClick={() => setSelectedLog(null)}
                     >
-                        <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
-                            <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                                <XCircle className="w-6 h-6 text-red-600" />
-                                Error Details
-                            </h3>
-                            <p className="text-sm text-gray-600 mt-1">
-                                {formatDate(selectedLog.created_at)}
-                            </p>
-                        </div>
-
-                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                            {/* Organization & User Info */}
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase">Organization</label>
-                                    <p className="text-sm text-gray-900 mt-1">{selectedLog.organization_name || 'N/A'}</p>
-                                </div>
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase">User</label>
-                                    <p className="text-sm text-gray-900 mt-1">{selectedLog.user_name || 'N/A'}</p>
-                                    <p className="text-xs text-gray-500">{selectedLog.user_email}</p>
-                                </div>
-                            </div>
-
-                            {/* Error Info */}
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Error Type</label>
-                                <p className="text-sm text-gray-900 mt-1">{selectedLog.error_type}</p>
-                            </div>
-
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase">Error Message</label>
-                                <p className="text-sm text-gray-900 mt-1 bg-red-50 p-4 rounded-lg border border-red-200">
-                                    {selectedLog.error_message}
+                        <div
+                            className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-red-50 to-orange-50">
+                                <h3 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                                    <XCircle className="w-6 h-6 text-red-600" />
+                                    Error Details
+                                </h3>
+                                <p className="text-sm text-gray-600 mt-1">
+                                    {formatDate(selectedLog.created_at)}
                                 </p>
                             </div>
 
-                            {selectedLog.error_stack && (
-                                <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase">Stack Trace</label>
-                                    <pre className="text-xs bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mt-1 max-h-64">
-                                        {selectedLog.error_stack}
-                                    </pre>
+                            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                                {/* Organization & User Info */}
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 uppercase">Organization</label>
+                                        <p className="text-sm text-gray-900 mt-1">{selectedLog.organization_name || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 uppercase">User</label>
+                                        <p className="text-sm text-gray-900 mt-1">{selectedLog.user_name || 'N/A'}</p>
+                                        <p className="text-xs text-gray-500">{selectedLog.user_email}</p>
+                                    </div>
                                 </div>
-                            )}
 
-                            {selectedLog.page_url && (
+                                {/* Error Info */}
                                 <div>
-                                    <label className="text-xs font-semibold text-gray-500 uppercase">Page URL</label>
-                                    <p className="text-sm text-blue-600 mt-1 break-all">{selectedLog.page_url}</p>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase">Error Type</label>
+                                    <p className="text-sm text-gray-900 mt-1">{selectedLog.error_type}</p>
                                 </div>
-                            )}
-                        </div>
 
-                        <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3">
-                            {!selectedLog.is_resolved && (
+                                <div>
+                                    <label className="text-xs font-semibold text-gray-500 uppercase">Error Message</label>
+                                    <p className="text-sm text-gray-900 mt-1 bg-red-50 p-4 rounded-lg border border-red-200">
+                                        {selectedLog.error_message}
+                                    </p>
+                                </div>
+
+                                {selectedLog.error_stack && (
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 uppercase">Stack Trace</label>
+                                        <pre className="text-xs bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mt-1 max-h-64">
+                                            {selectedLog.error_stack}
+                                        </pre>
+                                    </div>
+                                )}
+
+                                {selectedLog.page_url && (
+                                    <div>
+                                        <label className="text-xs font-semibold text-gray-500 uppercase">Page URL</label>
+                                        <p className="text-sm text-blue-600 mt-1 break-all">{selectedLog.page_url}</p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="p-6 border-t border-gray-200 bg-gray-50 flex gap-3">
+                                {!selectedLog.is_resolved && (
+                                    <button
+                                        onClick={() => {
+                                            markAsResolved(selectedLog.id);
+                                            setSelectedLog(null);
+                                        }}
+                                        className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                                    >
+                                        Mark as Resolved
+                                    </button>
+                                )}
                                 <button
-                                    onClick={() => {
-                                        markAsResolved(selectedLog.id);
-                                        setSelectedLog(null);
-                                    }}
-                                    className="flex-1 bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                                    onClick={() => setSelectedLog(null)}
+                                    className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
                                 >
-                                    Mark as Resolved
+                                    Close
                                 </button>
-                            )}
-                            <button
-                                onClick={() => setSelectedLog(null)}
-                                className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
-                            >
-                                Close
-                            </button>
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 }
