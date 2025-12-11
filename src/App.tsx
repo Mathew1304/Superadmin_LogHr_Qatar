@@ -79,8 +79,8 @@ function App() {
   const navItems = [
     { id: 'dashboard' as ActiveView, label: 'Dashboard', icon: LayoutDashboard },
     { id: 'companies' as ActiveView, label: 'Registered Companies', icon: Building2 },
-    { id: 'tickets' as ActiveView, label: 'Helpdesk & Support', icon: Headphones },
     { id: 'errors' as ActiveView, label: 'Error Console Logs', icon: AlertTriangle },
+    { id: 'tickets' as ActiveView, label: 'Helpdesk & Support', icon: Headphones },
   ];
 
   return (
@@ -127,15 +127,11 @@ function App() {
           </ul>
         </nav>
 
-        {/* Logout Button */}
+        {/* Footer */}
         <div className="p-4 border-t border-gray-200">
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-4 py-3 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-all font-medium"
-          >
-            <LogOut className="w-5 h-5" />
-            <span>Logout</span>
-          </button>
+          <div className="text-xs text-gray-500 text-center">
+            © 2025 Super Admin
+          </div>
         </div>
       </aside>
 
@@ -143,16 +139,25 @@ function App() {
       <div className="flex-1 flex flex-col">
         {/* Header */}
         <header className="bg-white border-b border-gray-200 px-8 py-4">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              {navItems.find(item => item.id === activeView)?.label}
-            </h2>
-            <p className="text-sm text-gray-600 mt-1">
-              {activeView === 'dashboard' && 'Overview of latest activities and metrics'}
-              {activeView === 'companies' && 'Manage all registered organizations'}
-              {activeView === 'tickets' && 'Manage and resolve support requests'}
-              {activeView === 'errors' && 'Monitor and resolve application errors'}
-            </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {navItems.find(item => item.id === activeView)?.label}
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                {activeView === 'dashboard' && 'Overview of latest activities and metrics'}
+                {activeView === 'companies' && 'Manage all registered organizations'}
+                {activeView === 'tickets' && 'Manage and resolve support requests'}
+                {activeView === 'errors' && 'Monitor and resolve application errors'}
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="font-medium">Logout</span>
+            </button>
           </div>
         </header>
 

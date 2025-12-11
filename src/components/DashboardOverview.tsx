@@ -29,7 +29,7 @@ export function DashboardOverview() {
         try {
             const { data: companies } = await supabase
                 .from('organizations')
-                .select('id, company_name, created_at')
+                .select('id, name, created_at')
                 .order('created_at', { ascending: false })
                 .limit(3);
 
@@ -39,7 +39,11 @@ export function DashboardOverview() {
                 .order('created_at', { ascending: false })
                 .limit(3);
 
-            setRecentCompanies(companies || []);
+            setRecentCompanies((companies || []).map((c: any) => ({
+                id: c.id,
+                company_name: c.name,
+                created_at: c.created_at
+            })));
             setRecentErrors(errors || []);
         } catch (error) {
             console.error('Error fetching recent data:', error);

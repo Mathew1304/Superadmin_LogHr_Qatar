@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { Edit, Eye, Search } from 'lucide-react';
+import { Edit, Eye, Search, Trash } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Company } from '../types';
+import { DeleteConfirmationModal } from './DeleteConfirmationModal';
 
 interface CompanyTableProps {
   onManageFeatures: (company: Company) => void;
@@ -12,6 +13,9 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [companyToDelete, setCompanyToDelete] = useState<Company | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchCompanies();
@@ -51,22 +55,16 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
             id: org.id,
             company_name: org.name,
             email: org.email || 'N/A',
-            manager_name: 'Admin', // We'll enhance this later
             phone: org.phone || 'N/A',
-            website: org.website || '',
-            subscription_plan_id: subscription?.plan_id || '',
-            status: org.is_active ? 'active' : 'inactive',
-            registered_at: org.created_at,
-            last_login: null, // We can fetch this separately if needed
+            subscription_plan: plan?.name || 'Free', // Map plan name here
+            subscription_status: subscription?.status || 'active', // Default or mapped status
+            status: org.is_active ? 'active' : 'suspended', // Map correctly
             created_at: org.created_at,
-            updated_at: org.updated_at,
-            subscription_plans: plan ? {
-              id: plan.id,
-              name: plan.name,
-              description: plan.description,
-              price: plan.price,
-              created_at: plan.created_at
+            subscription_details: plan ? {
+              plan_name: plan.name,
+              status: subscription.status
             } : undefined
+            // removed manager_name, registered_at (use created_at), last_login, subscription_plans
           };
         });
 
@@ -80,11 +78,57 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
     }
   };
 
+  const handleDeleteClick = (company: Company) => {
+    setCompanyToDelete(company);
+    setDeleteModalOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!companyToDelete) return;
+
+    setIsDeleting(true);
+    try {
+      // Use Edge Function for secure full deletion (Auth + DB)
+      const { data, error } = await supabase.functions.invoke('delete-account', {
+        body: { organizationId: companyToDelete.id }
+      });
+
+      if (error) {
+        // Try to parse the error body if available
+        let errorMessage = 'Failed to delete company.';
+        try {
+          // If it's a FunctionsHttpError, the body might be in the response
+          if ('context' in error && (error as any).context instanceof Response) {
+            const body = await (error as any).context.json();
+            errorMessage = body.error || errorMessage;
+          } else {
+            errorMessage = error.message;
+          }
+        } catch (e) {
+          errorMessage = error.message;
+        }
+
+        console.error('Delete error details:', error);
+        alert(`Error: ${errorMessage}`);
+        throw error;
+      }
+
+      // Remove from local state to update UI immediately
+      setCompanies(companies.filter(c => c.id !== companyToDelete.id));
+      setDeleteModalOpen(false);
+      setCompanyToDelete(null);
+    } catch (error) {
+      console.error('Error deleting company:', error);
+      alert('Failed to delete company. Please check console for details.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const filteredCompanies = companies.filter(
     (company) =>
       company.company_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      company.manager_name.toLowerCase().includes(searchTerm.toLowerCase())
+      company.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getStatusColor = (status: string) => {
@@ -121,20 +165,7 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
     });
   };
 
-  const formatLastLogin = (date: string | null) => {
-    if (!date) return 'Never';
-    const now = new Date();
-    const loginDate = new Date(date);
-    const diffMs = now.getTime() - loginDate.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 60) return `${diffMins} mins ago`;
-    if (diffHours < 24) return `${diffHours} hours ago`;
-    if (diffDays < 7) return `${diffDays} days ago`;
-    return formatDate(date);
-  };
 
   if (loading) {
     return (
@@ -179,9 +210,6 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
                 Company
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Manager
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Plan
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -189,9 +217,6 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Registered
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Last Login
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Actions
@@ -210,21 +235,16 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
                       {company.company_name}
                     </div>
                     <div className="text-sm text-gray-500">{company.email}</div>
+                    <div className="text-xs text-gray-400">{company.phone}</div>
                   </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-900">
-                    {company.manager_name}
-                  </div>
-                  <div className="text-sm text-gray-500">{company.phone}</div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span
                     className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getPlanColor(
-                      company.subscription_plans?.name || ''
+                      company.subscription_plan || 'Free'
                     )}`}
                   >
-                    {company.subscription_plans?.name}
+                    {company.subscription_plan || 'Free'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
@@ -237,10 +257,7 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatDate(company.registered_at)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {formatLastLogin(company.last_login)}
+                  {formatDate(company.created_at)}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex items-center gap-2">
@@ -264,6 +281,13 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
                     >
                       <Eye className="w-5 h-5" />
                     </button>
+                    <button
+                      onClick={() => handleDeleteClick(company)}
+                      className="text-red-500 hover:text-red-700 transition-colors p-1 hover:bg-red-50 rounded"
+                      title="Delete Company"
+                    >
+                      <Trash className="w-5 h-5" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -277,6 +301,16 @@ export function CompanyTable({ onManageFeatures, onViewDetails }: CompanyTablePr
           <p className="text-gray-500">No companies found</p>
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete Organization"
+        message="Are you sure you want to delete this organization? This will remove all employees, payroll data, and settings associated with:"
+        itemName={companyToDelete?.company_name}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
