@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { X, Save, Loader2, LayoutDashboard, Users, Calendar, FileText, DollarSign, BarChart3, Settings } from 'lucide-react';
+import { X, Save, Loader2, LayoutDashboard, Users, Calendar, FileText, DollarSign, BarChart3, Settings, CheckSquare, Receipt, BookOpen, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { Company } from '../types';
+import { Toast } from './Toast';
 
 interface FeatureManagementModalProps {
   company: Company | null;
@@ -42,10 +43,34 @@ const SIDEBAR_FEATURES: SidebarFeature[] = [
     description: 'Leave requests and approvals'
   },
   {
+    key: 'tasks',
+    name: 'Tasks',
+    icon: <CheckSquare className="w-5 h-5" />,
+    description: 'Task management'
+  },
+  {
+    key: 'expenses',
+    name: 'Expenses',
+    icon: <Receipt className="w-5 h-5" />,
+    description: 'Expense tracking'
+  },
+  {
     key: 'payroll',
     name: 'Payroll',
     icon: <DollarSign className="w-5 h-5" />,
     description: 'Payroll processing'
+  },
+  {
+    key: 'training',
+    name: 'Training',
+    icon: <BookOpen className="w-5 h-5" />,
+    description: 'Training programs'
+  },
+  {
+    key: 'work-reports',
+    name: 'Work Reports',
+    icon: <ClipboardList className="w-5 h-5" />,
+    description: 'Work reports and logs'
   },
   {
     key: 'reports',
@@ -69,6 +94,7 @@ export function FeatureManagementModal({
   const [enabledFeatures, setEnabledFeatures] = useState<{ [key: string]: boolean }>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     if (company) {
@@ -141,20 +167,30 @@ export function FeatureManagementModal({
         updated_at: new Date().toISOString()
       }));
 
+      console.log('Saving features:', featureRows);
+
       // Upsert all feature rows
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('organization_features')
         .upsert(featureRows, {
           onConflict: 'organization_id,feature_key'
-        });
+        })
+        .select();
+
+      console.log('Upsert result:', { data, error });
 
       if (error) throw error;
 
-      onUpdate();
-      onClose();
+      setToast({ message: 'Features updated successfully!', type: 'success' });
+
+      // Close modal after a short delay to show the toast
+      setTimeout(() => {
+        onUpdate();
+        onClose();
+      }, 1500);
     } catch (error) {
       console.error('Error updating features:', error);
-      alert('Failed to update features. Please try again.');
+      setToast({ message: 'Failed to update features. Please try again.', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -264,6 +300,14 @@ export function FeatureManagementModal({
           </div>
         </div>
       </div>
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
     </div>
   );
 }
